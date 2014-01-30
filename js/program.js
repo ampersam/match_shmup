@@ -80,32 +80,6 @@ for (_img in imageBin) {
                     x: 300,
                     y: 300,
                     lastTick: 0
-                },
-                applyAccel: function (input) {
-                    var self = this;
-                    self.velocity.x += self.accel.x * input[0];
-                    self.velocity.y += self.accel.y * input[1];
-                },
-                applyDecel: function () {
-                    var self = this;
-                    if (self.velocity.x) {
-                        self.velocity.x > 0 ? self.velocity.x = Math.floor(self.velocity.x * .9) : self.velocity.x = Math.ceil(self.velocity.x * .9);
-                    }
-                    if (self.velocity.y) {
-                        self.velocity.y > 0 ? self.velocity.y = Math.floor(self.velocity.y * .9) : self.velocity.y = Math.ceil(self.velocity.y * .9);
-                    }
-                    console.log(self.velocity.x + " " + self.velocity.y);
-                },
-                applyVelocity: function () {
-                    var self = this;
-                    var _player = self.self;
-                    _player.position.x += (self.velocity.x/10)/30;
-                    _player.position.y += (self.velocity.y/10)/30;
-                },
-                clearAccel: function () {
-                    var self = this;
-                    self.accel.x = 0;
-                    self.accel.y = 0;
                 }
             }
             this.stats = {
@@ -269,6 +243,48 @@ for (_img in imageBin) {
 
     };
 
+    //set up the movement algorithms
+    GameEngine.prototype.move = function(actor, input) {
+        var applyAccel = function (actor, input) {
+            actor.movement.velocity.x += actor.movement.accel.x * input[0];
+            actor.movement.velocity.y += actor.movement.accel.y * input[1];
+        };
+        var applyDecel = function (actor, input) {    //TODO program for only releasing one thrust direction
+            if (actor.movement.velocity.x) {
+                actor.movement.velocity.x > 0 ? actor.movement.velocity.x = Math.floor(actor.movement.velocity.x * .9) : actor.movement.velocity.x = Math.ceil(actor.movement.velocity.x * .9);
+            }
+            if (actor.movement.velocity.y) {
+                actor.movement.velocity.y > 0 ? actor.movement.velocity.y = Math.floor(actor.movement.velocity.y * .9) : actor.movement.velocity.y = Math.ceil(actor.movement.velocity.y * .9);
+            }
+            console.log(actor.movement.velocity.x + " " + actor.movement.velocity.y);
+        };
+        var applyVelocity = function (actor) {
+            actor.position.x += (actor.movement.velocity.x/10)/30;
+            actor.position.y += (actor.movement.velocity.y/10)/30;
+        };
+        var clearAccel = function () {
+            actor.movement.accel.x = 0;
+            actor.movement.accel.y = 0;
+        };
+
+        //if there is x or y input
+        //apply acceleration
+        //else if there is still velocity on the actor
+        //begin to apply deceleration
+        if (input[0] || input[1]) {
+            applyAccel(actor, input);
+        } else {
+            if (actor.movement.velocity.x || actor.movement.velocity.y) {
+                applyDecel(actor, input);
+            }
+        }
+
+        //if the actor has velocity at the end of the algorithm, apply it to the position
+        if (actor.movement.velocity.x || actor.movement.velocity.y) {
+            applyVelocity(actor);
+        };
+    };
+
     GameEngine.prototype.paint = function (thing) {
         var self = this;
 
@@ -343,29 +359,33 @@ for (_img in imageBin) {
 
     GameEngine.prototype.refreshFGCanvas = function() {
         var self = this;
-        var _playerMove = self.player.movement
 
         // clear the foreground
         self.layersDOM[1].get(0).width = self.layersDOM[1].get(0).width;
 
         //check if player has moved out-of-bounds
-        console.log(self.player.position.x + " " + self.player.position.y)
-        if ((self.player.position.x < 40 || self.player.position.x > 600) || (self.player.position.y < 200 || self.player.position.x > 500)) {
-            self.player.isOOB = true;
-        } else {
-            self.player.isOOB = false;
-        }
+        // console.log(self.player.position.x + " " + self.player.position.y)
+        // if ((self.player.position.x < 40 || self.player.position.x > 600) || (self.player.position.y < 200 || self.player.position.x > 500)) {
+        //     self.player.isOOB = true;
+        // } else {
+        //     self.player.isOOB = false;
+        // }
 
         // update the player's location
         // if a directional key is held down, apply 1/30 the acceleration to the velocity
         // else begin deceleration
-        if ((self.keys[0] || self.keys[1])) {
-            _playerMove.applyAccel(self.keys);
-        } else {
-            _playerMove.applyDecel();
-        }
-        // apply 1/30 the velocity to the player's position
-        _playerMove.applyVelocity();
+        var playerInput = self.keys;
+        self.move(self.player, playerInput);
+
+
+        // if ((self.keys[0] || self.keys[1])) {
+        //     self.move.applyAccel(self.keys);
+        // } else {
+        //     _playerMove.applyDecel();
+        // }
+        // // apply 1/30 the velocity to the player's position
+        // _playerMove.applyVelocity();
+
         self.player.icon.updateIcon();
         self.paint(self.player.icon);
 
