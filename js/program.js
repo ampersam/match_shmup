@@ -74,12 +74,14 @@ for (_img in imageBin) {
                 velocity: {
                     x: 0,
                     y: 0,
-                    max: 150
+                    maxX: 3000,
+                    minX: -3000,
+                    maxY: 3000,
+                    minY: -3000
                 },
                 accel: {
                     x: 300,
                     y: 300,
-                    lastTick: 0
                 }
             }
             this.stats = {
@@ -94,6 +96,10 @@ for (_img in imageBin) {
                 pos: {
                     x: 300,
                     y: 100
+                },
+                hitbox: {
+                    w: 100,
+                    h: 100
                 },
                 image: imageBin.player,
                 context: 'fg',
@@ -246,6 +252,7 @@ for (_img in imageBin) {
     //set up the movement algorithms
     GameEngine.prototype.move = function(actor, input) {
         var applyAccel = function (actor, input) {
+            //TODO apply max velocity 
             actor.movement.velocity.x += actor.movement.accel.x * input[0];
             actor.movement.velocity.y += actor.movement.accel.y * input[1];
         };
@@ -267,6 +274,27 @@ for (_img in imageBin) {
             actor.movement.accel.y = 0;
         };
 
+        //if actor is the player and hits the boundary, limit directional velocity
+        if (actor instanceof this.Player) {
+            var actorX = actor.position.x;
+            var actorY = actor.position.y;
+            var actorX2 = actorX + actor.icon.hitbox.w;
+            var actorY2 = actorY + actor.icon.hitbox.h;
+
+            if (actorX < 100) {
+                actor.movement.velocity.minX = 0;
+            }
+            else if (actorX2 > 700) {
+                actor.movement.velocity.maxX = 0;
+            }
+            if (actorY < 300) {
+                actor.movement.velocity.minY = 0;
+            }
+            else if (actorY2 > 600) {
+                actor.movement.velocity.maxY = 0;
+            }
+        }
+
         //if there is x or y input
         //apply acceleration
         //else if there is still velocity on the actor
@@ -283,6 +311,15 @@ for (_img in imageBin) {
         if (actor.movement.velocity.x || actor.movement.velocity.y) {
             applyVelocity(actor);
         };
+
+        //restore original player max velocity
+        if (actor instanceof this.Player) {
+            actor.movement.velocity.minX = -3000;
+            actor.movement.velocity.maxX = 3000;
+            actor.movement.velocity.minY = -3000;
+            actor.movement.velocity.maxY = 3000;
+        }
+        console.log(actor.movement.velocity);
     };
 
     GameEngine.prototype.paint = function (thing) {
@@ -378,13 +415,6 @@ for (_img in imageBin) {
         self.move(self.player, playerInput);
 
 
-        // if ((self.keys[0] || self.keys[1])) {
-        //     self.move.applyAccel(self.keys);
-        // } else {
-        //     _playerMove.applyDecel();
-        // }
-        // // apply 1/30 the velocity to the player's position
-        // _playerMove.applyVelocity();
 
         self.player.icon.updateIcon();
         self.paint(self.player.icon);
