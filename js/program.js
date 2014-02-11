@@ -74,14 +74,14 @@ for (_img in imageBin) {
                 velocity: {
                     x: 0,
                     y: 0,
-                    maxX: 3000,
-                    minX: -3000,
-                    maxY: 3000,
-                    minY: -3000
+                    maxX: 5000,
+                    minX: -5000,
+                    maxY: 5000,
+                    minY: -5000
                 },
                 accel: {
-                    x: 300,
-                    y: 300,
+                    x: 500,
+                    y: 500,
                 }
             }
             this.stats = {
@@ -110,7 +110,7 @@ for (_img in imageBin) {
                     self.pos.y = _player.position.y
                 }
             };
-            this.isOOB = false;
+            this.isPlayer = true;;
         };
 
         // set up the Monster constructor
@@ -251,49 +251,73 @@ for (_img in imageBin) {
 
     //set up the movement algorithms
     GameEngine.prototype.move = function(actor, input) {
+        var V = actor.movement.velocity;
+        var A = actor.movement.accel;
         var applyAccel = function (actor, input) {
-            //TODO apply max velocity 
-            actor.movement.velocity.x += actor.movement.accel.x * input[0];
-            actor.movement.velocity.y += actor.movement.accel.y * input[1];
+            //TODO apply velocity bounds
+            var newVx = V.x + A.x * input[0];
+            var newVy = V.y + A.y * input[1];
+            V.x = newVx;
+            V.y = newVy;
         };
         var applyDecel = function (actor, input) {    //TODO program for only releasing one thrust direction
-            if (actor.movement.velocity.x) {
-                actor.movement.velocity.x > 0 ? actor.movement.velocity.x = Math.floor(actor.movement.velocity.x * .9) : actor.movement.velocity.x = Math.ceil(actor.movement.velocity.x * .9);
+            if (V.x && !input[0]) {
+                V.x > 0 ? V.x = Math.floor(V.x * .80) : V.x = Math.ceil(V.x * .80);
             }
-            if (actor.movement.velocity.y) {
-                actor.movement.velocity.y > 0 ? actor.movement.velocity.y = Math.floor(actor.movement.velocity.y * .9) : actor.movement.velocity.y = Math.ceil(actor.movement.velocity.y * .9);
+            if (V.y && !input[1]) {
+                V.y > 0 ? V.y = Math.floor(V.y * .80) : V.y = Math.ceil(V.y * .80);
             }
-            console.log(actor.movement.velocity.x + " " + actor.movement.velocity.y);
+            console.log(V.x + " " + V.y);
         };
         var applyVelocity = function (actor) {
-            actor.position.x += (actor.movement.velocity.x/10)/30;
-            actor.position.y += (actor.movement.velocity.y/10)/30;
+            var newPosX = actor.position.x + (V.x/10)/30;
+            var newPosY = actor.position.y + (V.y/10)/30;
+            console.log(actor)
+            if (actor.isPlayer) {
+                if (newPosX < 0) {
+                    newPosX = 0;
+                    V.x = 0;
+                } else if (newPosX > 750) {
+                    newPosX = 750;
+                    V.x = 0;
+                }
+                if (newPosY < 200) {
+                    newPosY = 200;
+                    V.y = 0;
+                } else if (newPosY > 550) {
+                    newPosY = 550;
+                    V.y = 0;
+                }
+            }
+
+            actor.position.x = newPosX;
+            actor.position.y = newPosY;
         };
         var clearAccel = function () {
-            actor.movement.accel.x = 0;
-            actor.movement.accel.y = 0;
+            A.x = 0;
+            A.y = 0;
         };
 
-        //if actor is the player and hits the boundary, limit directional velocity
-        if (actor instanceof this.Player) {
-            var actorX = actor.position.x;
-            var actorY = actor.position.y;
-            var actorX2 = actorX + actor.icon.hitbox.w;
-            var actorY2 = actorY + actor.icon.hitbox.h;
+        // //if actor is the player and hits the boundary, limit directional velocity
+        // if (actor instanceof this.Player) {
+        //     var actorX = actor.position.x;
+        //     var actorY = actor.position.y;
+        //     var actorX2 = actorX + actor.icon.hitbox.w;
+        //     var actorY2 = actorY + actor.icon.hitbox.h;
 
-            if (actorX < 100) {
-                actor.movement.velocity.minX = 0;
-            }
-            else if (actorX2 > 700) {
-                actor.movement.velocity.maxX = 0;
-            }
-            if (actorY < 300) {
-                actor.movement.velocity.minY = 0;
-            }
-            else if (actorY2 > 600) {
-                actor.movement.velocity.maxY = 0;
-            }
-        }
+        //     if (actorX < 100) {
+        //         V.minX = 0;
+        //     }
+        //     else if (actorX2 > 700) {
+        //         V.maxX = 0;
+        //     }
+        //     if (actorY < 300) {
+        //         V.minY = 0;
+        //     }
+        //     else if (actorY2 > 600) {
+        //         V.maxY = 0;
+        //     }
+        // }
 
         //if there is x or y input
         //apply acceleration
@@ -301,25 +325,20 @@ for (_img in imageBin) {
         //begin to apply deceleration
         if (input[0] || input[1]) {
             applyAccel(actor, input);
-        } else {
-            if (actor.movement.velocity.x || actor.movement.velocity.y) {
+            if (V.x && !input[0]) {
+                applyDecel(actor, input);
+            } else if (V.y && !input[1]) {
                 applyDecel(actor, input);
             }
+        } else {
+            applyDecel(actor, input);
         }
 
         //if the actor has velocity at the end of the algorithm, apply it to the position
-        if (actor.movement.velocity.x || actor.movement.velocity.y) {
+        if (V.x || V.y) {
             applyVelocity(actor);
         };
 
-        //restore original player max velocity
-        if (actor instanceof this.Player) {
-            actor.movement.velocity.minX = -3000;
-            actor.movement.velocity.maxX = 3000;
-            actor.movement.velocity.minY = -3000;
-            actor.movement.velocity.maxY = 3000;
-        }
-        console.log(actor.movement.velocity);
     };
 
     GameEngine.prototype.paint = function (thing) {
@@ -400,17 +419,7 @@ for (_img in imageBin) {
         // clear the foreground
         self.layersDOM[1].get(0).width = self.layersDOM[1].get(0).width;
 
-        //check if player has moved out-of-bounds
-        // console.log(self.player.position.x + " " + self.player.position.y)
-        // if ((self.player.position.x < 40 || self.player.position.x > 600) || (self.player.position.y < 200 || self.player.position.x > 500)) {
-        //     self.player.isOOB = true;
-        // } else {
-        //     self.player.isOOB = false;
-        // }
-
         // update the player's location
-        // if a directional key is held down, apply 1/30 the acceleration to the velocity
-        // else begin deceleration
         var playerInput = self.keys;
         self.move(self.player, playerInput);
 
