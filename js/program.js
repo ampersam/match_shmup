@@ -3,12 +3,16 @@ var imageBin = {
     player: null,
     red: null,
     green: null,
-    blue: null
+    blue: null,
+    purple: null,
+    orange: null
 }
 imageBin.player = 'img/ship.png';
 imageBin.red = 'img/red.png';
 imageBin.green = 'img/green.png';
 imageBin.blue = 'img/blue.png';
+imageBin.purple = 'img/purple.png';
+imageBin.orange = 'img/orange.png';
 
 for (_img in imageBin) {
     var _$imageDOM = $('<img/>')[0]
@@ -46,7 +50,7 @@ for (_img in imageBin) {
 
         // the actors, and lists of actor and other entities
         self.player = null;
-        self.monsterList = [];
+        self.convoyList = [];
         self.sceneryList = [];
         self.walls = [];
 
@@ -98,8 +102,8 @@ for (_img in imageBin) {
                     y: 100
                 },
                 hitbox: {
-                    w: 100,
-                    h: 100
+                    w: 50,
+                    h: 50
                 },
                 image: imageBin.player,
                 context: 'fg',
@@ -113,19 +117,43 @@ for (_img in imageBin) {
             this.isPlayer = true;;
         };
 
-        // set up the Monster constructor
-        self.Foe = function () {
+        // set up the Cargo unit constructor
+        self.Cargo = function () {
             this.position = {
                 x: 0,
                 y: 0
             };
             this.stats = {
-                hp: 0,
-                mp: 0,
-                xpValue: 0,
-                moveSpeed: 0
+                hp: 20,
+                shield: 10,
+                color: null,
             };
-            this.icon = {};   // TODO use sprite sheets for monsters, store that info here
+            this.movement = {
+                velocity: {
+                    x: 0,
+                    y: 0
+                }
+            }
+            this.icon = {
+                self: this,
+                type: 'image',
+                pos: {
+                    x: 0,
+                    y: 0
+                },
+                hitbox: {
+                    w: 50,
+                    h: 50
+                },
+                image: imageBin.player,
+                context: 'fg',
+                updateIcon: function(){
+                    var self = this;
+                    var _parent = self.self
+                    self.pos.x = _parent.position.x,
+                    self.pos.y = _parent.position.y
+                }
+            };   // TODO use sprite sheets for monsters, store that info here
         };
 
         // set up the art constructor
@@ -179,6 +207,29 @@ for (_img in imageBin) {
         var self = this;
         self.player = new self.Player();
     };
+
+    GameEngine.prototype.createConvoy = function (length, modifier) {
+        var self = this;
+        var convoy = [];
+        var cargoUnit = null;
+
+        var Xbase = getRandomInteger(0,1) ? 150 : 650;
+        var Ybase = getRandomInteger(20, 200);
+        var velocityBase = getRandomInteger(1500,2500);
+
+        for (var i = 0; i < length; i++) {
+            cargoUnit = new self.Cargo();
+            cargoUnit.position.x = Xbase + (i * 50);
+            cargoUnit.position.y = Ybase;
+            cargoUnit.movement.velocity.x = velocityBase;
+            cargoUnit.stats.color = getRandomInteger(0,1) ? (getRandomInteger(0,1) ? 'red' : 'green') : (getRandomInteger(0,1) ? 'blue' : (getRandomInteger(0,1) ? 'orange' : 'purple'));
+            cargoUnit.icon.image = imageBin[cargoUnit.stats.color]
+            console.log(cargoUnit);
+            convoy.push(cargoUnit);
+        }
+        console.log(convoy);
+        self.convoyList.push(convoy);
+    }
 
     GameEngine.prototype.createPlayfield = function () {
         var self = this;
@@ -267,12 +318,10 @@ for (_img in imageBin) {
             if (V.y && !input[1]) {
                 V.y > 0 ? V.y = Math.floor(V.y * .80) : V.y = Math.ceil(V.y * .80);
             }
-            console.log(V.x + " " + V.y);
         };
         var applyVelocity = function (actor) {
             var newPosX = actor.position.x + (V.x/10)/30;
             var newPosY = actor.position.y + (V.y/10)/30;
-            console.log(actor)
             if (actor.isPlayer) {
                 if (newPosX < 0) {
                     newPosX = 0;
@@ -297,27 +346,6 @@ for (_img in imageBin) {
             A.x = 0;
             A.y = 0;
         };
-
-        // //if actor is the player and hits the boundary, limit directional velocity
-        // if (actor instanceof this.Player) {
-        //     var actorX = actor.position.x;
-        //     var actorY = actor.position.y;
-        //     var actorX2 = actorX + actor.icon.hitbox.w;
-        //     var actorY2 = actorY + actor.icon.hitbox.h;
-
-        //     if (actorX < 100) {
-        //         V.minX = 0;
-        //     }
-        //     else if (actorX2 > 700) {
-        //         V.maxX = 0;
-        //     }
-        //     if (actorY < 300) {
-        //         V.minY = 0;
-        //     }
-        //     else if (actorY2 > 600) {
-        //         V.maxY = 0;
-        //     }
-        // }
 
         //if there is x or y input
         //apply acceleration
@@ -346,71 +374,77 @@ for (_img in imageBin) {
 
         var _lines;
 
-        var _context = self.canvasLayers[thing.context];
+        //is the thing an array of things to paint instead?
+        if (Object.prototype.toString.apply(thing) === '[object Array]') {
+            for (var i = 0; i < thing.length; i++) {
+                thing[i].icon ? self.paint(thing[i].icon) : self.paint(thing[i]);
+            }
+        } else {
+            var _context = self.canvasLayers[thing.context];
 
-        // line drawing algorithm
-        if (thing.type === 'line') {
+            // line drawing algorithm
+            if (thing.type === 'line') {
 
-            // set properties of the line
-            _context.lineWidth = thing.lineWidth;
-            _context.strokeStyle = thing.color;
+                // set properties of the line
+                _context.lineWidth = thing.lineWidth;
+                _context.strokeStyle = thing.color;
 
-            // start parsing the lines
-            for (var _i in thing.lines) {
-                var _line = thing.lines[_i];
-                var _start = [_line.start.x, _line.start.y];
-                var _end = [_line.end.x, _line.end.y];
+                // start parsing the lines
+                for (var _i in thing.lines) {
+                    var _line = thing.lines[_i];
+                    var _start = [_line.start.x, _line.start.y];
+                    var _end = [_line.end.x, _line.end.y];
 
-                // begin line
-                _context.moveTo(_start[0], _start[1]);
+                    // begin line
+                    _context.moveTo(_start[0], _start[1]);
 
-                // if the line consists of multiple segments, iterate through those
-                if (_line.point2) {
-                    var _point = 2;
-                    while (_line['point'+_point]) {
-                        _thisPoint = _line['point'+_point];
-                        _context.lineTo(_thisPoint.x, _thisPoint.y);
-                        _point += 1;
+                    // if the line consists of multiple segments, iterate through those
+                    if (_line.point2) {
+                        var _point = 2;
+                        while (_line['point'+_point]) {
+                            _thisPoint = _line['point'+_point];
+                            _context.lineTo(_thisPoint.x, _thisPoint.y);
+                            _point += 1;
+                        }
                     }
+                    // end the line
+                    _context.lineTo(_end[0], _end[1]);
                 }
-                // end the line
-                _context.lineTo(_end[0], _end[1]);
+
+                // stroke that line
+                _context.stroke();
             }
 
-            // stroke that line
-            _context.stroke();
+            // rectangle algorithm
+            else if (thing.type === 'shape') {
+                _context.fillStyle = thing.color;
+                _context.fillRect(
+                    thing.origin.x, thing.origin.y,
+                    thing.dim.w, thing.dim.h
+                )
+            }
+
+            // text algorithm
+            else if (thing.type === 'text') {
+                _context.fillStyle = thing.color;
+                _context.font = thing.font;
+
+                _context.fillText(
+                    thing.content,
+                    thing.pos.x, thing.pos.y
+                );
+            }
+
+            // image algorithm
+            else if (thing.type === 'image') {
+                var _image = thing.image;
+
+                _context.drawImage(
+                    _image,
+                    thing.pos.x, thing.pos.y
+                );
+            }
         }
-
-        // rectangle algorithm
-        else if (thing.type === 'shape') {
-            _context.fillStyle = thing.color;
-            _context.fillRect(
-                thing.origin.x, thing.origin.y,
-                thing.dim.w, thing.dim.h
-            )
-        }
-
-        // text algorithm
-        else if (thing.type === 'text') {
-            _context.fillStyle = thing.color;
-            _context.font = thing.font;
-
-            _context.fillText(
-                thing.content,
-                thing.pos.x, thing.pos.y
-            );
-        }
-
-        // image algorithm
-        else if (thing.type === 'image') {
-            var _image = thing.image;
-
-            _context.drawImage(
-                _image,
-                thing.pos.x, thing.pos.y
-            );
-        }
-
     };
 
     GameEngine.prototype.refreshFGCanvas = function() {
@@ -423,10 +457,25 @@ for (_img in imageBin) {
         var playerInput = self.keys;
         self.move(self.player, playerInput);
 
+        if (self.frameCounter === 10) {
+            self.createConvoy(3, 1);
+        }
 
+        //process the cargo states
+        self.AIHandler(self.frameCounter);
 
+        //update the various icons from their stats
         self.player.icon.updateIcon();
+        for (var x = 0; x < self.convoyList.length; x++) {
+            var currentConvoy = self.convoyList[x];
+            for (var y = 0; y < currentConvoy.length; y++) {
+                currentConvoy[y].icon.updateIcon();
+            }
+        }
+
+        //paint the various icons onto the foreground
         self.paint(self.player.icon);
+        self.paint(self.convoyList);
 
         // fps counter
         var fps = {
