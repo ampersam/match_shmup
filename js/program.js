@@ -5,7 +5,8 @@ var imageBin = {
     green: null,
     blue: null,
     purple: null,
-    orange: null
+    orange: null,
+    shot1: null
 }
 imageBin.player = 'img/ship.png';
 imageBin.red = 'img/red.png';
@@ -13,6 +14,7 @@ imageBin.green = 'img/green.png';
 imageBin.blue = 'img/blue.png';
 imageBin.purple = 'img/purple.png';
 imageBin.orange = 'img/orange.png';
+imageBin.shot1 = 'img/shot1.png';
 
 for (_img in imageBin) {
     var _$imageDOM = $('<img/>')[0]
@@ -31,16 +33,18 @@ for (_img in imageBin) {
                 width: 800,
                 refreshRate: 60
             },
-            controls: {
-                up: 87,    // w
-                down: 83,  // s
-                left: 65,  // a
-                right: 68  // d
+            controls: { 
+                up: 87,         // w
+                down: 83,       // s
+                left: 65,       // a
+                right: 68,      // d
+                shoot: 190,     // .
+                stopGame: 48    // 0
             }
         };
 
         self.options = $.extend({}, defaults, config);
-        self.keys = [0,0];
+        self.keys = [0,0,0];
 
         // set some common variables
         self.$game = $('#game');
@@ -50,6 +54,7 @@ for (_img in imageBin) {
 
         // the actors, and lists of actor and other entities
         self.player = null;
+        self.playerShotList = [];
         self.convoyList = [];
         self.sceneryList = [];
         self.walls = [];
@@ -115,6 +120,48 @@ for (_img in imageBin) {
                 }
             };
             this.isPlayer = true;;
+        };
+
+        // set up the player's shot constructor
+        self.PlayerShot = function () {
+            this.position = {
+                x: null,
+                y: null
+            };
+            this.movement = {
+                self: this,
+                velocity: {
+                    x: null,
+                    y: null
+                },
+                accel: {
+                    x: 500,
+                    y: 500
+                }
+            };
+            this.stats = {
+                damage: null
+            };
+            this.icon = {
+                self: this,
+                type: 'image',
+                pos: {
+                    x: 0,
+                    y: 0
+                },
+                hitbox: {
+                    w: 50,
+                    h: 50
+                },
+                image: imageBin.shot1,
+                context: 'fg',
+                updateIcon: function(){
+                    var self = this;
+                    var _player = self.self
+                    self.pos.x = _player.position.x,
+                    self.pos.y = _player.position.y
+                }
+            };
         };
 
         // set up the Cargo unit constructor
@@ -213,13 +260,17 @@ for (_img in imageBin) {
         var convoy = [];
         var cargoUnit = null;
 
+        //set X origin point for convoy
         var Xbase = getRandomInteger(0,1) ? 150 : 650;
+        //set Y origin point for convoy
         var Ybase = getRandomInteger(20, 200);
-        var velocityBase = getRandomInteger(1500,2500);
+        //set velocity depending on whether convoy begins on left or right side
+        var velocityBase = Xbase > 400 ? -(getRandomInteger(700,950)) : getRandomInteger(700,950);
 
+        //build convoy out of cargo units depending on length variable
         for (var i = 0; i < length; i++) {
             cargoUnit = new self.Cargo();
-            cargoUnit.position.x = Xbase + (i * 50);
+            cargoUnit.position.x = Xbase + (i * 50);    //position based on the X origin, incremented per unit
             cargoUnit.position.y = Ybase;
             cargoUnit.movement.velocity.x = velocityBase;
             cargoUnit.stats.color = getRandomInteger(0,1) ? (getRandomInteger(0,1) ? 'red' : 'green') : (getRandomInteger(0,1) ? 'blue' : (getRandomInteger(0,1) ? 'orange' : 'purple'));
@@ -351,15 +402,17 @@ for (_img in imageBin) {
         //apply acceleration
         //else if there is still velocity on the actor
         //begin to apply deceleration
-        if (input[0] || input[1]) {
-            applyAccel(actor, input);
-            if (V.x && !input[0]) {
-                applyDecel(actor, input);
-            } else if (V.y && !input[1]) {
+        if (actor.isPlayer) {
+            if (input[0] || input[1]) {
+                applyAccel(actor, input);
+                if (V.x && !input[0]) {
+                    applyDecel(actor, input);
+                } else if (V.y && !input[1]) {
+                    applyDecel(actor, input);
+                }
+            } else {
                 applyDecel(actor, input);
             }
-        } else {
-            applyDecel(actor, input);
         }
 
         //if the actor has velocity at the end of the algorithm, apply it to the position
@@ -447,24 +500,61 @@ for (_img in imageBin) {
         }
     };
 
+    GameEngine.prototype.AIHandler = function (frameNum) {
+        var self = this;
+
+        //cargo destruction behavior
+
+        //convoy movement behavior
+
+        //convoy spawn conditions
+        if (self.frameCounter === 10) {
+            self.createConvoy(3, 1);
+        }
+    }
+
+    GameEngine.prototype.playerHandler = function(frameNum) {
+        var self = this;
+
+        var playerFire = function (state) {
+            if (state) {
+                var shot = new self.PlayerShot();
+                shot.position.x = self.player.position.x+17;
+                shot.position.y = self.player.position.y - 60;
+                shot.movement.velocity.y = -1500;
+                shot.stats.damage = 20;
+                console.log(shot);
+                self.playerShotList.push(shot);
+            }
+        }
+
+        // process the player's movement input and location
+        var playerInput = self.keys;
+        self.move(self.player, playerInput);
+
+        // process the movement of any active shots
+        for (var i = 0; i < self.playerShotList.length; i++) {
+            self.move(self.playerShotList[i]);
+        }
+        
+        // process the fire trigger state
+        playerInput[2] ? playerFire(1) : playerFire(0);
+
+        // process any accumulated cargo matches
+    };
+
     GameEngine.prototype.refreshFGCanvas = function() {
         var self = this;
 
         // clear the foreground
         self.layersDOM[1].get(0).width = self.layersDOM[1].get(0).width;
 
-        // update the player's location
-        var playerInput = self.keys;
-        self.move(self.player, playerInput);
-
-        if (self.frameCounter === 10) {
-            self.createConvoy(3, 1);
-        }
-
+        //process the player state
+        self.playerHandler(self.frameCounter);
         //process the cargo states
         self.AIHandler(self.frameCounter);
 
-        //update the various icons from their stats
+        //run updateIcon on every icon there is
         self.player.icon.updateIcon();
         for (var x = 0; x < self.convoyList.length; x++) {
             var currentConvoy = self.convoyList[x];
@@ -472,12 +562,16 @@ for (_img in imageBin) {
                 currentConvoy[y].icon.updateIcon();
             }
         }
+        for (var x = 0; x < self.playerShotList.length; x++) {
+            self.playerShotList[x].icon.updateIcon();
+        }
 
         //paint the various icons onto the foreground
         self.paint(self.player.icon);
         self.paint(self.convoyList);
+        self.paint(self.playerShotList);
 
-        // fps counter
+        // fps counter TODO: make it also show per second data
         var fps = {
             type: 'text',
             content: 'frame: ' + self.frameCounter,
@@ -543,6 +637,13 @@ for (_img in imageBin) {
                 case _controls.wait:
                     event.preventDefault();
                     break;
+                case _controls.shoot:
+                    event.preventDefault();
+                    self.keys[2] = 1;
+                    break;
+                case _controls.stopGame:
+                    event.preventDefault();
+                    debugger;
                 default:
                     return;
             }
@@ -568,6 +669,10 @@ for (_img in imageBin) {
                     break;
                 case _controls.wait:
                     event.preventDefault();
+                    break;
+                case _controls.shoot:
+                    event.preventDefault();
+                    self.keys[2] = 0;
                     break;
                 default:
                     return;
