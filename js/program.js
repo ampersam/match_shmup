@@ -140,7 +140,8 @@ for (_img in imageBin) {
                 }
             };
             this.stats = {
-                damage: null
+                damage: null,
+                createdOn: null
             };
             this.icon = {
                 self: this,
@@ -517,14 +518,20 @@ for (_img in imageBin) {
         var self = this;
 
         var playerFire = function (state) {
+            for (var shot = 0; shot < self.playerShotList.length; shot++) {
+                self.playerShotList[shot].position.y < -15 ? self.playerShotList.splice(shot, 1) : null;
+            }
             if (state) {
-                var shot = new self.PlayerShot();
-                shot.position.x = self.player.position.x+17;
-                shot.position.y = self.player.position.y - 60;
-                shot.movement.velocity.y = -1500;
-                shot.stats.damage = 20;
-                console.log(shot);
-                self.playerShotList.push(shot);
+                if (self.playerShotList.length === 0 || (self.playerShotList.length < 4 && self.playerShotList[self.playerShotList.length-1].stats.createdOn+5 <= frameNum)) {         // TODO tie shot limit into stats
+                    var shot = new self.PlayerShot();
+                    shot.stats.createdOn = frameNum;
+                    shot.position.x = self.player.position.x+17;
+                    shot.position.y = self.player.position.y - 60;
+                    shot.movement.velocity.y = -5500;
+                    shot.stats.damage = 20;
+                    self.playerShotList.push(shot);
+                    console.log(self.playerShotList);
+                }
             }
         }
 
